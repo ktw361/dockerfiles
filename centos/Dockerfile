@@ -3,18 +3,26 @@
 
 FROM centos
 
-RUN yum install -y \
+RUN \
+    yum update && \
+    yum install -y \
     wget \
     git \
     tmux \
     vim \
-    zsh
+    zsh \
+    rsync
+
+RUN \
+    yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
+    yum update && \
+    yum install -y htop
+
 
 # FUCK China's GFW
 #
 ARG github_base="https://github.com"
 # ARG github_base="https://github.com.cnpmjs.org"
-
 
 # vim_runtime
 RUN \
@@ -35,11 +43,8 @@ RUN sh ~/dotfiles/oh-my-zsh-install.sh
 RUN \
     git clone $github_base/agkozak/zsh-z ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-z && \
     git clone $github_base/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && \
-    git clone $github_base/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-RUN \
-    cp ~/dotfiles/zshrc ~/.zshrc && \
-    cp ~/dotfiles/bashrc ~/.bashrc
-
+    git clone $github_base/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting && \
+    cp ~/dotfiles/zshrc ~/.zshrc
 
 # Install gogs from base environment
 #
