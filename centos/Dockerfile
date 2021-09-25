@@ -4,7 +4,7 @@
 FROM centos
 
 RUN \
-    yum update && \
+    # yum update -y && \
     yum install -y \
     wget \
     git \
@@ -13,10 +13,10 @@ RUN \
     zsh \
     rsync
 
-RUN \
-    yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
-    yum update && \
-    yum install -y htop
+# RUN \
+#     yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
+#     yum update -y && \
+#     yum install -y htop
 
 
 # FUCK China's GFW
