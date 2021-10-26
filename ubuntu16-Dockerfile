@@ -1,0 +1,65 @@
+FROM ubuntu:16.04 as base
+
+WORKDIR /root
+
+RUN \
+    apt-get update -y && \
+    apt-get install -y \
+    wget \
+    curl \
+    git \
+    tmux \
+    python \
+    python3.5 python3.5-dev \
+    ctags \
+    zsh \
+    libncurses5-dev \
+    make gcc g++ gdb \
+    silversearcher-ag
+
+# vim 8.2
+COPY temp/vim vim
+RUN \
+    cd vim && \
+    ./configure \
+        --enable-python3interp=yes \
+        --with-python3-command=python3.5 \
+        --with-python3-config-dir=/usr/lib/python3.5/config-3.5m-x86_64-linux-gnu && \
+    make -j$(nproc) && make install && \
+    cd .. && rm -rf vim
+
+# vim-plug
+RUN mkdir -p .vim/autoload
+ADD temp/plug.vim .vim/autoload/plug.vim
+# ADD https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim .vim/autoload/plug.vim
+
+
+COPY temp/vim_runtime .vim_runtime
+RUN \
+    echo $HOME && \
+    cd .vim_runtime && \
+    sh install_awesome_vimrc.sh
+
+COPY temp/dotfiles dotfiles
+RUN \
+    bash dotfiles/minimal_install.sh && \
+    cp dotfiles/vimrc .vimrc && \
+    cp dotfiles/vimrc.keymap .vimrc.keymap && \
+    sed -i '4,7s/^/"\ /' .vimrc  # comment out vim_vundle
+
+#TODO: youcomplete me, download plugins
+
+
+COPY temp/ohmyzsh-master .oh-my-zsh
+RUN sh dotfiles/install-oh-my-zsh.sh
+
+COPY temp/zsh-z         .oh-my-zsh/plugins/zsh-z
+COPY temp/zsh-autosuggestions       .oh-my-zsh/plugins/zsh-autosuggestions
+COPY temp/zsh-syntax-highlighting   .oh-my-zsh/plugins/zsh-syntax-highlighting
+RUN \
+    cp dotfiles/zshrc   .zshrc
+
+
+CMD ["zsh"]
+
+# vim: set syntax=dockerfile:

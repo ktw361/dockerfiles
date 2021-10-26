@@ -46,20 +46,6 @@ RUN \
     git clone $github_base/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting && \
     cp ~/dotfiles/zshrc ~/.zshrc
 
-# Install gogs from base environment
-#
-# gogs
-# RUN \
-#     cd /tmp && \
-#     wget https://dl.gogs.io/0.12.3/gogs_0.12.3_linux_amd64.tar.gz && \
-#     tar -xzvf gogs_0.12.3_linux_amd64.tar.gz && \
-#     cd gogs_0.12.3_linux_amd64
-# Add user "git", needed for gogs
-# RUN useradd -ms /bin/zsh git
-
-
-# Clash
-
 
 WORKDIR /root
 CMD ["/bin/bash"]
