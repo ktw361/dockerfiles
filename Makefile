@@ -35,7 +35,7 @@ prepare: $(prerequisites)
 	@echo "Preparation complete"
 
 ubuntu16: prepare
-	docker build -f ubuntu16-Dockerfile -t ubuntu16 .
+	docker build -f ubuntu16-Dockerfile -t ktw361/ubuntu16 .
 
 
 .PHONY: clean
