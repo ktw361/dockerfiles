@@ -4,9 +4,9 @@ github_base="https://github.com"
 vim:
 	test -d temp/$@ || git clone --depth 1 --branch v8.2.3455 ${github_base}/vim/vim.git temp/$@
 vim-plug:
-	cd temp/ && wget https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+	test -f temp/plug.vim || (cd temp/ && wget https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim)
 vim_runtime:
-	test -d temp/$@ || git clone --depth 1 ${github_base}//ktw361/vim_runtime.git temp/$@ done
+	test -d temp/$@ || git clone --depth 1 ${github_base}/ktw361/vim_runtime.git temp/$@
 
 dotfiles:
 	test -d temp/$@ || git clone ${github_base}/ktw361/dotfiles.git temp/$@
@@ -35,7 +35,16 @@ prepare: $(prerequisites)
 	@echo "Preparation complete"
 
 ubuntu16: prepare
-	docker build -f ubuntu16-Dockerfile -t ktw361/ubuntu16 .
+	sed 's/<version>/16.04/' ubuntu-Dockerfile > /tmp/$@-Dockerfile
+	docker build -f /tmp/$@-Dockerfile -t ktw361/$@ .
+
+ubuntu18: prepare
+	sed 's/<version>/18.04/' ubuntu-Dockerfile > /tmp/$@-Dockerfile
+	docker build -f /tmp/$@-Dockerfile -t ktw361/$@ .
+
+u16py37: ubuntu16
+	sed 's/<base>/ktw361\/ubuntu16/' ubuntu-py-Dockerfile > /tmp/$@-Dockerfile
+	docker build -f /tmp/$@-Dockerfile -t ktw361/$@ .
 
 
 .PHONY: clean

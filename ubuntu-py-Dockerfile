@@ -1,0 +1,15 @@
+FROM <base> as base
+
+RUN apt-get install -y python3.7 python3-pip
+
+RUN pip3 install \
+    numpy \
+    jupyter \
+    matplotlib \
+    pillow \
+    opencv-python
+
+
+CMD ["bash"]
+
+# vim: set syntax=dockerfile:

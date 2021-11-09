@@ -1,6 +1,12 @@
-FROM ubuntu:16.04 as base
+FROM ubuntu:<version> as base
 
 WORKDIR /root
+
+# add python3.6+
+RUN \
+    apt-get update -y && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa
 
 RUN \
     apt-get update -y && \
@@ -10,7 +16,7 @@ RUN \
     git \
     tmux \
     python \
-    python3.5 python3.5-dev \
+    python3.7 python3.7-dev \
     ctags \
     zsh \
     libncurses5-dev \
@@ -23,8 +29,8 @@ RUN \
     cd vim && \
     ./configure \
         --enable-python3interp=yes \
-        --with-python3-command=python3.5 \
-        --with-python3-config-dir=/usr/lib/python3.5/config-3.5m-x86_64-linux-gnu && \
+        --with-python3-command=python3.7 \
+        --with-python3-config-dir=/usr/lib/python3.7/config-3.7m-x86_64-linux-gnu && \
     make -j$(nproc) && make install && \
     cd .. && rm -rf vim
 
