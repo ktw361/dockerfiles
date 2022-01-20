@@ -6,7 +6,7 @@ vim:
 vim-plug:
 	cd temp/ && wget https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 vim_runtime:
-	test -d temp/$@ || git clone --depth 1 ${github_base}//ktw361/vim_runtime.git temp/$@ done
+	test -d temp/$@ || git clone --depth 1 ${github_base}//ktw361/vim_runtime.git temp/$@
 
 dotfiles:
 	test -d temp/$@ || git clone ${github_base}/ktw361/dotfiles.git temp/$@
@@ -36,6 +36,9 @@ prepare: $(prerequisites)
 
 ubuntu16: prepare
 	docker build -f ubuntu16-Dockerfile -t ktw361/ubuntu16 .
+
+torch17: prepare
+	docker build -f torch17-Dockerfile -t ktw361/torch17 .
 
 
 .PHONY: clean

@@ -1,0 +1,118 @@
+FROM nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+LABEL maintainer="Zhifan Zhu <zhifan.zhu@bristol.ac.uk>"
+# Ref: https://github.com/sinzlab/pytorch-docker/blob/master/Dockerfile
+
+WORKDIR /root
+
+####################
+# Basic Utilities  #
+####################
+RUN \
+    apt-get update -y && \
+    apt-get install -y \
+    wget \
+    curl \
+    git \
+    pkg-config \
+    tmux \
+    python3.8 \
+    python3.8-dev \
+    python3.8-distutils \
+    ctags \
+    zsh \
+    libncurses5-dev \
+    make gcc g++ gdb \
+    silversearcher-ag 
+RUN \
+    # install pip the official way
+    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py &&\
+    python3.8 get-pip.py &&\
+    rm get-pip.py
+
+# vim 8.2
+COPY temp/vim vim
+RUN \
+    cd vim && \
+    ./configure \
+        --enable-python3interp=yes \
+        --with-python3-command=python3.8 \
+        # Note there is no 'm' after 3.8
+        --with-python3-config-dir=/usr/lib/python3.8/config-3.8-x86_64-linux-gnu && \
+    make -j$(nproc) && make install && \
+    cd .. && rm -rf vim
+
+# vim-plug
+RUN mkdir -p .vim/autoload
+ADD temp/plug.vim .vim/autoload/plug.vim
+# ADD https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim .vim/autoload/plug.vim
+
+
+COPY temp/vim_runtime .vim_runtime
+RUN \
+    echo $HOME && \
+    cd .vim_runtime && \
+    sh install_awesome_vimrc.sh
+
+COPY temp/dotfiles dotfiles
+RUN \
+    bash dotfiles/minimal_install.sh && \
+    cp dotfiles/vimrc .vimrc && \
+    cp dotfiles/vimrc.keymap .vimrc.keymap && \
+    sed -i '4,7s/^/"\ /' .vimrc  # comment out vim_vundle
+
+#TODO: youcomplete me, download plugins
+
+
+COPY temp/ohmyzsh-master .oh-my-zsh
+RUN sh dotfiles/install-oh-my-zsh.sh
+
+COPY temp/zsh-z         .oh-my-zsh/plugins/zsh-z
+COPY temp/zsh-autosuggestions       .oh-my-zsh/plugins/zsh-autosuggestions
+COPY temp/zsh-syntax-highlighting   .oh-my-zsh/plugins/zsh-syntax-highlighting
+RUN \
+    cp dotfiles/zshrc   .zshrc
+
+
+#####################
+# Computing related #
+#####################
+RUN apt install -y \
+    build-essential \
+    zip \
+    zlib1g-dev \
+    unzip \
+    libgl-dev \
+    libblas-dev \
+    liblapack-dev \
+    libhdf5-dev \
+    swig \
+    lsb-release \
+    ca-certificates
+    # ln -s /usr/bin/python3.8 /usr/local/bin/python &&\
+    # ln -s /usr/bin/python3.8 /usr/local/bin/python3 &&\
+# Install essential Python packages
+RUN python3.8 -m pip --no-cache-dir install \
+    numpy \
+    matplotlib \
+    scipy \
+    pandas \
+    jupyter \
+    scikit-learn \
+    scikit-image \
+    Pillow==6.1.0 \
+    opencv-python
+RUN python3.8 -m pip --no-cache-dir install \
+    torch==1.7.0+cu110 \
+    torchvision==0.8.1+cu110 \
+    -f https://download.pytorch.org/whl/torch_stable.html 
+    # 'jupyterlab>=2'
+    # xeus-python
+
+# best practice to keep the Docker image clean
+RUN apt-get clean &&\
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+
+CMD ["zsh"]
+
+# vim: set syntax=dockerfile:
