@@ -84,9 +84,8 @@ RUN apt install -y \
     libgl-dev \
     libblas-dev \
     liblapack-dev \
-    libhdf5-dev \
-    swig \
-    lsb-release \
+    # libhdf5-dev \
+    # swig \
     ca-certificates
     # ln -s /usr/bin/python3.8 /usr/local/bin/python &&\
     # ln -s /usr/bin/python3.8 /usr/local/bin/python3 &&\
