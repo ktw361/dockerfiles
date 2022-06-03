@@ -37,6 +37,9 @@ prepare: $(prerequisites)
 ubuntu16: prepare
 	docker build -f ubuntu16-Dockerfile -t ktw361/ubuntu16 .
 
+ubuntu20: prepare
+	docker build -f ubuntu20-Dockerfile -t ktw361/ubuntu20 .
+
 torch17: prepare
 	docker build -f torch17-Dockerfile -t ktw361/torch17 .
 
