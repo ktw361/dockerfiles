@@ -1,0 +1,70 @@
+FROM nvidia/cuda:11.0-devel-ubuntu20.04 as base
+
+WORKDIR /root
+
+# https://github.com/NVIDIA/nvidia-docker/issues/1632
+RUN apt-key del 7fa2af80
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/7fa2af80.pub
+
+RUN apt-get update -y
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
+RUN apt-get install -y \
+    wget \
+    curl \
+    git \
+    tmux \
+    python \
+    python3.8 python3.8-dev \
+    ctags \
+    zsh \
+    libncurses5-dev \
+    make gcc g++ gdb \
+    silversearcher-ag
+
+# vim 8.2
+COPY temp/vim vim
+RUN \
+    cd vim && \
+    ./configure \
+        --enable-python3interp=yes \
+        --with-python3-command=python3.8 \
+        --with-python3-config-dir=/usr/lib/python3.8/config-3.8m-x86_64-linux-gnu && \
+    make -j$(nproc) && make install && \
+    cd .. && rm -rf vim
+
+# vim-plug
+RUN mkdir -p .vim/autoload
+ADD temp/plug.vim .vim/autoload/plug.vim
+# ADD https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim .vim/autoload/plug.vim
+
+
+COPY temp/vim_runtime .vim_runtime
+RUN \
+    echo $HOME && \
+    cd .vim_runtime && \
+    sh install_awesome_vimrc.sh
+
+COPY temp/dotfiles dotfiles
+RUN \
+    bash dotfiles/minimal_install.sh && \
+    cp dotfiles/vimrc .vimrc && \
+    cp dotfiles/vimrc.keymap .vimrc.keymap && \
+    sed -i '4,7s/^/"\ /' .vimrc  # comment out vim_vundle
+
+#TODO: youcomplete me, download plugins
+
+
+COPY temp/ohmyzsh-master .oh-my-zsh
+RUN sh dotfiles/install-oh-my-zsh.sh
+
+COPY temp/zsh-z         .oh-my-zsh/plugins/zsh-z
+COPY temp/zsh-autosuggestions       .oh-my-zsh/plugins/zsh-autosuggestions
+COPY temp/zsh-syntax-highlighting   .oh-my-zsh/plugins/zsh-syntax-highlighting
+RUN \
+    cp dotfiles/zshrc   .zshrc
+
+
+CMD ["zsh"]
+
+# vim: set syntax=dockerfile:

@@ -39,6 +39,8 @@ ubuntu16: prepare
 
 ubuntu20: prepare
 	docker build -f ubuntu20-Dockerfile -t ktw361/ubuntu20 .
+ubuntu20-cu11: prepare
+	docker build -f ubuntu20-cu11-Dockerfile -t ktw361/ubuntu20-cu11 .
 
 torch17: prepare
 	docker build -f torch17-Dockerfile -t ktw361/torch17 .
