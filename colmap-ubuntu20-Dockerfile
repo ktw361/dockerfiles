@@ -1,5 +1,5 @@
 # Modified from ubuntu20-cu11-Dockerfile
-FROM nvidia/cuda:11.8.0-devel-ubuntu20.04 as base
+FROM nvidia/cuda:11.0.3-devel-ubuntu20.04 as base
 
 WORKDIR /root
 
