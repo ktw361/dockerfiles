@@ -45,6 +45,9 @@ ubuntu20-cu11: prepare
 torch17: prepare
 	docker build -f torch17-Dockerfile -t ktw361/torch17 .
 
+colmap-ubuntu20: prepare
+	docker build -f colmap-ubuntu20-Dockerfile -t ktw361/colmap-ubuntu20 .
+
 
 .PHONY: clean
 clean:
