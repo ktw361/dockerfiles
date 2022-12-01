@@ -47,8 +47,6 @@ RUN \
     cp dotfiles/vimrc.keymap .vimrc.keymap && \
     sed -i '4,7s/^/"\ /' .vimrc  # comment out vim_vundle
 
-RUN vim +PlugInstall +qall
-
 #TODO: youcomplete me, download plugins
 
 
@@ -60,6 +58,38 @@ COPY temp/zsh-autosuggestions       .oh-my-zsh/plugins/zsh-autosuggestions
 COPY temp/zsh-syntax-highlighting   .oh-my-zsh/plugins/zsh-syntax-highlighting
 RUN \
     cp dotfiles/zshrc   .zshrc
+
+
+################### INSTALL VINS-MONO ###################3
+
+RUN vim +PlugInstall +qall
+
+# ROS Kinetic
+RUN \
+    apt-get update && apt-get install -y lsb-release && \
+    sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' && \
+    curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && \
+    apt-get update && \
+    apt-get install -y ros-kinetic-desktop-full
+
+# Cmake and Ceres-Solver
+RUN \
+    apt-get install -y libgoogle-glog-dev libgflags-dev libatlas-base-dev libeigen3-dev libsuitesparse-dev && \
+    wget https://github.com/Kitware/CMake/releases/download/v3.25.0/cmake-3.25.0-linux-x86_64.tar.gz && \
+    tar -xzvf cmake-3.25.0-linux-x86_64.tar.gz && \
+    wget http://ceres-solver.org/ceres-solver-1.14.0.tar.gz && \
+    tar -xzvf ceres-solver-1.14.0.tar.gz && \
+    mkdir ceres-bin && cd ceres-bin && \
+    /root/cmake-3.25.0-linux-x86_64/bin/cmake ../ceres-solver-1.14.0 && \
+    make -j && make install
+
+# VINS-MONO
+RUN \
+    mkdir -p ~/catkin_ws/src && \
+    cd ~/catkin_ws/src && \
+    git clone https://github.com/HKUST-Aerial-Robotics/VINS-Mono.git && \
+    . /opt/ros/kinetic/setup.sh && \
+    cd ~/catkin_ws/ && catkin_make
 
 
 CMD ["zsh"]

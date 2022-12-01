@@ -60,6 +60,8 @@ RUN \
     cp dotfiles/vimrc.keymap .vimrc.keymap && \
     sed -i '4,7s/^/"\ /' .vimrc  # comment out vim_vundle
 
+RUN vim +PlugInstall +qall
+
 #TODO: youcomplete me, download plugins
 
 
