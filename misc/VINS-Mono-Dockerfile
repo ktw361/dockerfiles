@@ -91,6 +91,9 @@ RUN \
     . /opt/ros/kinetic/setup.sh && \
     cd ~/catkin_ws/ && catkin_make
 
+RUN \
+    echo "source /opt/ros/kinetic/setup.zsh" >> ~/.zshrc && \
+    echo "source /root/catkin_ws/devel/setup.zsh" >> ~/.zshrc
 
 CMD ["zsh"]
 

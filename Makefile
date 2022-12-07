@@ -4,7 +4,7 @@ github_base="https://github.com"
 vim:
 	test -d temp/$@ || git clone --depth 1 --branch v8.2.3455 ${github_base}/vim/vim.git temp/$@
 vim-plug:
-	cd temp/ && wget https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+	test -f temp/plug.vim || wget https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim -O temp/plug.vim
 vim_runtime:
 	test -d temp/$@ || git clone --depth 1 ${github_base}//ktw361/vim_runtime.git temp/$@
 
