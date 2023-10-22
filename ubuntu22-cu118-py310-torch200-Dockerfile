@@ -1,0 +1,123 @@
+FROM nvidia/cuda:11.8.0-devel-ubuntu22.04 as base
+
+WORKDIR /root
+
+# https://github.com/NVIDIA/nvidia-docker/issues/1632
+RUN apt-key del 7fa2af80
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/7fa2af80.pub
+
+RUN apt-get update -y
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
+RUN apt-get install -y \
+    wget \
+    curl \
+    git \
+    tmux \
+    python3.10 python3.10-dev \
+    python3-pip \
+    fish \
+    htop \
+    libncurses5-dev \
+    make gcc g++ gdb \
+    silversearcher-ag
+
+# vim 8.2
+COPY temp/vim vim
+RUN \
+    cd vim && \
+    ./configure \
+        --enable-python3interp=yes \
+        --with-python3-command=python3.10 \
+        --with-python3-config-dir=/usr/lib/python3.10/config-3.10m-x86_64-linux-gnu && \
+    make -j$(nproc) && make install && \
+    cd .. && rm -rf vim
+
+# vim-plug
+RUN mkdir -p .vim/autoload
+ADD temp/plug.vim .vim/autoload/plug.vim
+# ADD https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim .vim/autoload/plug.vim
+
+COPY temp/vim_runtime .vim_runtime
+RUN \
+    echo $HOME && \
+    cd .vim_runtime && \
+    sh install_awesome_vimrc.sh
+
+COPY temp/dotfiles dotfiles
+RUN \
+    bash dotfiles/minimal_install.sh && \
+    cp dotfiles/vimrc .vimrc && \
+    cp dotfiles/vimrc.keymap .vimrc.keymap && \
+    sed -i '4,7s/^/"\ /' .vimrc  # comment out vim_vundle
+
+RUN vim +PlugInstall +qall
+
+#TODO: youcomplete me, download plugins
+
+ENV SHELL=/usr/bin/fish
+RUN mkdir -p .config/fish && \
+    cp dotfiles/fish/conf.d/ .config/fish/ -r  && \
+    cp dotfiles/fish/functions/ .config/fish/ -r
+
+
+####################
+## Compile pytorch 
+####################
+## CONDA: Install miniconda
+#RUN apt-get install -y build-essential
+#ENV CONDA_DIR /opt/conda
+#RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+#    /bin/bash ~/miniconda.sh -b -p /opt/conda
+#RUN apt install -y cmake
+## Compile pytorch-1.8.1
+#RUN /opt/conda/bin/conda install -c pytorch magma-cuda110 -y
+#COPY temp/pytorch-1.8.1 pytorch-1.8.1
+#RUN /opt/conda/bin/conda install -y \
+#    ninja mkl mkl-include \
+#    setuptools cmake cffi typing_extensions \
+#    future six requests dataclasses
+#RUN pip install pyyaml numpy typing-extensions
+#RUN apt install gcc-9 g++-9 -y
+#RUN \
+#    cd pytorch-1.8.1 && \
+#    export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"} && \
+#    BUILD_BINARY=0 BUILD_TEST=0 CC=gcc-9 CXX=g++-9 python3 setup.py install
+
+
+#####################
+# Computing related #
+#####################
+RUN apt install -y \
+    build-essential \
+    zip \
+    zlib1g-dev \
+    unzip \
+    libgl-dev \
+    libblas-dev \
+    liblapack-dev \
+    ca-certificates
+
+# Install essential Python packages
+RUN python3 -m pip --no-cache-dir install \
+    numpy \
+    matplotlib \
+    scipy \
+    pandas \
+    jupyter \
+    scikit-learn \
+    scikit-image \
+    Pillow \
+    opencv-python
+RUN python3 -m pip --no-cache-dir install \
+    torch==2.0.0+cu118 \
+    torchvision==0.15.0+cu118 \
+    -f https://download.pytorch.org/whl/torch_stable.html 
+
+# best practice to keep the Docker image clean
+# RUN apt-get clean &&\
+#     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+CMD ["fish"]
+
+# vim: set syntax=dockerfile:

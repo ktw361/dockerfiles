@@ -1,0 +1,133 @@
+FROM nvidia/cuda:11.8.0-devel-ubuntu22.04 as base
+
+WORKDIR /root
+
+# https://github.com/NVIDIA/nvidia-docker/issues/1632
+RUN apt-key del 7fa2af80
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/7fa2af80.pub
+
+RUN apt-get update -y
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
+RUN apt-get install -y \
+    wget \
+    curl \
+    git \
+    tmux \
+    python3.10 python3.10-dev \
+    python3-pip \
+    fish \
+    htop \
+    libncurses5-dev \
+    make gcc g++ gdb \
+    silversearcher-ag
+
+# vim 8.2
+COPY temp/vim vim
+RUN \
+    cd vim && \
+    ./configure \
+        --enable-python3interp=yes \
+        --with-python3-command=python3.10 \
+        --with-python3-config-dir=/usr/lib/python3.10/config-3.10m-x86_64-linux-gnu && \
+    make -j$(nproc) && make install && \
+    cd .. && rm -rf vim
+
+# vim-plug
+RUN mkdir -p .vim/autoload
+ADD temp/plug.vim .vim/autoload/plug.vim
+# ADD https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim .vim/autoload/plug.vim
+
+COPY temp/vim_runtime .vim_runtime
+RUN \
+    echo $HOME && \
+    cd .vim_runtime && \
+    sh install_awesome_vimrc.sh
+
+COPY temp/dotfiles dotfiles
+RUN \
+    bash dotfiles/minimal_install.sh && \
+    cp dotfiles/vimrc .vimrc && \
+    cp dotfiles/vimrc.keymap .vimrc.keymap && \
+    sed -i '4,7s/^/"\ /' .vimrc  # comment out vim_vundle
+
+RUN vim +PlugInstall +qall
+
+#TODO: youcomplete me, download plugins
+
+ENV SHELL=/usr/bin/fish
+RUN mkdir -p .config/fish && \
+    cp dotfiles/fish/conf.d/ .config/fish/ -r  && \
+    cp dotfiles/fish/functions/ .config/fish/ -r
+
+
+#####################
+# Computing related #
+#####################
+RUN apt install -y \
+    build-essential \
+    zip \
+    zlib1g-dev \
+    unzip \
+    libgl-dev \
+    libblas-dev \
+    liblapack-dev \
+    ca-certificates
+
+# Install essential Python packages
+RUN python3 -m pip --no-cache-dir install \
+    numpy \
+    matplotlib \
+    scipy \
+    pandas==2.0.3 \
+    jupyter \
+    scikit-learn \
+    scikit-image \
+    Pillow \
+    opencv-python
+RUN python3 -m pip --no-cache-dir install \
+    torch==2.0.0+cu118 \
+    torchvision==0.15.0+cu118 \
+    -f https://download.pytorch.org/whl/torch_stable.html 
+
+### 3D / EPIC-HOR Related Libraries ###
+RUN mkdir -p externals
+# For frankmocap, we follow scripts/install_franomocap.sh to download to the host,
+# then compile (Dandan's) detector in docker. 
+# See scripts/install_frankmocap.sh -> scripts/install_hand_detectors.sh
+COPY temp/frankmocap externals/frankmocap
+RUN \
+    cd externals/frankmocap/detectors/hand_object_detector/lib && \
+    python3 setup.py build develop
+ENV PYTHONPATH "${PYTHONPATH}:/root/externals/frankmocap"
+
+RUN pip install git+https://github.com/hassony2/manopth.git
+RUN pip install git+https://github.com/facebookresearch/detectron2.git@v0.6
+RUN pip install https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py310_cu118_pyt200/pytorch3d-0.7.3-cp310-cp310-linux_x86_64.whl
+RUN pip install -e "git+https://github.com/naver/roma@22806dfb43329b9bf1dd2cead7e96720330e3151#egg=roma"
+RUN pip install \
+    chumpy==0.70 \
+    smplx==0.1.28 \
+    protobuf==3.20.1 \ 
+    pudb \
+    moviepy \
+    tqdm \
+    numpy==1.22.3
+RUN pip install git+https://github.com/zhifanzhu/libzhifan.git
+RUN pip install https://data.pyg.org/whl/torch-2.0.0%2Bcu118/torch_scatter-2.1.1%2Bpt20cu118-cp310-cp310-linux_x86_64.whl
+# RUN pip install git+https://github.com/zhifanzhu/sdf_pytorch@torch2.0
+RUN \
+    git clone --branch torch2.0 https://github.com/zhifanzhu/sdf_pytorch externals/sdf_pytorch
+    # cd sdf_pytorch && pip install .
+# RUN pip install -e "git+https://github.com/hassony2/multiperson.git#egg=neural_renderer_pytorch&subdirectory=neural_renderer"
+RUN \
+    git clone https://github.com/hassony2/multiperson.git externals/multiperson
+#     cd externals/multiperson && pip install ./neural_renderer
+
+# best practice to keep the Docker image clean
+RUN apt-get clean &&\
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+CMD ["fish"]
+
+# vim: set syntax=dockerfile:

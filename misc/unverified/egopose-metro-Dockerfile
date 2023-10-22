@@ -1,0 +1,127 @@
+FROM pytorch/pytorch:1.4-cuda10.1-cudnn7-devel as base
+
+# Configuration:
+# python 3.7
+# pytorch 1.4
+
+WORKDIR /root
+
+# https://github.com/NVIDIA/nvidia-docker/issues/1632
+RUN apt-key del 7fa2af80
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/7fa2af80.pub
+
+RUN apt-get update -y
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
+RUN apt-get install -y \
+    wget \
+    curl \
+    git \
+    tmux \
+    python3-pip \
+    ctags \
+    fish \
+    htop \
+    libncurses5-dev \
+    make gcc g++ gdb \
+    silversearcher-ag
+
+# vim 8.2
+COPY temp/vim vim
+RUN \
+    cd vim && \
+    ./configure \
+        --enable-python3interp=yes \
+        --with-python3-command=python3.8 \
+        --with-python3-config-dir=/usr/lib/python3.8/config-3.8m-x86_64-linux-gnu && \
+    make -j$(nproc) && make install && \
+    cd .. && rm -rf vim
+
+# vim-plug
+RUN mkdir -p .vim/autoload
+ADD temp/plug.vim .vim/autoload/plug.vim
+# ADD https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim .vim/autoload/plug.vim
+
+COPY temp/vim_runtime .vim_runtime
+RUN \
+    echo $HOME && \
+    cd .vim_runtime && \
+    sh install_awesome_vimrc.sh
+
+COPY temp/dotfiles dotfiles
+RUN \
+    bash dotfiles/minimal_install.sh && \
+    cp dotfiles/vimrc .vimrc && \
+    cp dotfiles/vimrc.keymap .vimrc.keymap && \
+    sed -i '4,7s/^/"\ /' .vimrc  # comment out vim_vundle
+
+RUN vim +PlugInstall +qall
+
+#TODO: youcomplete me, download plugins
+
+ENV SHELL=/usr/bin/fish
+RUN mkdir -p .config/fish && \
+    cp dotfiles/fish/conf.d/ .config/fish/ -r  && \
+    cp dotfiles/fish/functions/ .config/fish/ -r
+
+
+#####################
+# Computing related #
+#####################
+RUN apt install -y \
+    build-essential \
+    zip \
+    zlib1g-dev \
+    unzip \
+    libgl-dev \
+    libblas-dev \
+    liblapack-dev \
+    ca-certificates
+
+# Install essential Python packages
+RUN python3 -m pip --no-cache-dir install \
+    numpy \
+    matplotlib \
+    scipy \
+    pandas \
+    jupyter \
+    scikit-learn \
+    scikit-image \
+    Pillow \
+    opencv-python \
+    torchvision==0.5.0
+
+
+###################
+# METRO Baseline
+###################
+#git clone --recursive https://github.com/zhifanzhu/MeshTransformer.git
+COPY temp/MeshTransformer MeshTransformer
+RUN cd MeshTransformer && \
+    python3 setup.py build develop &&  \
+    pip install -r requirements.txt && \
+    pip install ./manopth 
+RUN pip install git+https://github.com/facebookresearch/pytorch3d.git@v0.6.2
+RUN pip install ./MeshTransformer/thirdparty/libzhifan
+
+# 100 DOH
+RUN cd MeshTransformer && \
+    git clone https://github.com/ddshan/hand_object_detector.git ./thirdparty/hand_object_detector && \
+    pip install -r thirdparty/hand_object_detector/requirements.txt && \
+    cd thirdparty/hand_object_detector/lib && \
+    python setup.py build develop
+RUN cp ./MeshTransformer/run_ho_detector.py ./MeshTransformer/thirdparty/hand_object_detector/
+
+COPY temp/basicModel_neutral_lbs_10_207_0_v1.0.0.pkl MeshTransformer/metro/modeling/data/
+COPY temp/MANO_RIGHT.pkl MeshTransformer/metro/modeling/data/
+COPY temp/metro_hand_state_dict.bin MeshTransformer/models/metro_release/metro_hand_state_dict.bin
+COPY temp/cls_hrnet_w64_sgd_lr5e-2_wd1e-4_bs32_x100.yaml MeshTransformer/models/hrnet/cls_hrnet_w64_sgd_lr5e-2_wd1e-4_bs32_x100.yaml
+COPY temp/faster_rcnn_1_8_132028.pth ./MeshTransformer/thirdparty/hand_object_detector/models/res101_handobj_100K/pascal_voc/faster_rcnn_1_8_132028.pth
+
+# best practice to keep the Docker image clean
+# RUN apt-get clean &&\
+#     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+CMD ["fish"]
+
+# vim: set syntax=dockerfile:
