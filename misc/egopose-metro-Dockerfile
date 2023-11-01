@@ -1,0 +1,131 @@
+FROM nvidia/cuda:11.1.1-devel-ubuntu20.04 as base
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Configuration:
+# python 3.7
+# pytorch 1.4
+
+WORKDIR /root
+
+RUN apt-get update -y
+RUN TZ=Etc/UTC apt-get -y install tzdata
+RUN apt-get install -y \
+    software-properties-common \
+    build-essential \
+    wget \
+    curl \
+    git \
+    tmux \
+    ctags \
+    htop \
+    libncurses5-dev \
+    make gcc g++ \
+    silversearcher-ag
+# Fish-3
+RUN apt-add-repository ppa:fish-shell/release-3 && \
+    apt-get update -y && \
+    apt-get install fish -y
+COPY temp/dotfiles dotfiles
+ENV SHELL=/usr/bin/fish
+RUN mkdir -p .config/fish && \
+    cp dotfiles/fish/conf.d/ .config/fish/ -r  && \
+    cp dotfiles/fish/functions/ .config/fish/ -r
+
+# CONDA: Install miniconda
+ENV CONDA_DIR /opt/conda
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+    /bin/bash ~/miniconda.sh -b -p /opt/conda
+ENV PATH="/opt/conda/bin:${PATH}"
+RUN conda create --name metro-hand python=3.7 -y
+RUN conda init fish
+RUN conda install -n metro-hand pytorch==1.4.0 cudatoolkit=10.1 -c pytorch -y 
+RUN /opt/conda/envs/metro-hand/bin/pip install --no-cache-dir torchvision==0.5.0
+
+#####################
+# Computing related #
+#####################
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
+RUN /opt/conda/envs/metro-hand/bin/pip --no-cache-dir install \
+    matplotlib \
+    scipy \
+    jupyter \
+    scikit-learn \
+    scikit-image \
+    opencv-python \
+    pandas==1.3.5 \
+    easydict
+
+###################
+# METRO Baseline
+###################
+#git clone --recursive https://github.com/zhifanzhu/MeshTransformer.git
+COPY temp/MeshTransformer MeshTransformer
+RUN cd MeshTransformer && \
+    /opt/conda/envs/metro-hand/bin/python setup.py build develop &&  \
+    /opt/conda/envs/metro-hand/bin/pip --no-cache-dir install -r requirements.txt && \
+    /opt/conda/envs/metro-hand/bin/pip --no-cache-dir install ./manopth && \
+    /opt/conda/envs/metro-hand/bin/pip --no-cache-dir install ./thirdparty/libzhifan
+
+# 100 DOH
+WORKDIR /root/MeshTransformer
+# dockefile won't run with cuda, so setup.py shouldn't try to detect cuda !
+# so we use sed to force compile with CUDA
+RUN git clone https://github.com/ddshan/hand_object_detector.git ./thirdparty/hand_object_detector && \
+    cd thirdparty/hand_object_detector/lib && \
+    git checkout 27d9577c8e60b9cae3b8eefc0d23262af5e39bfd && \
+    sed -i "31s/torch.cuda.is_available() and CUDA_HOME is not None/True/" setup.py
+# Activate conda env for compiling, also set cuda arch to skip gpu check?
+# For 1080Ti, it's Pascal; 2080Ti is Turing etc. See https://en.wikipedia.org/wiki/CUDA
+RUN . /opt/conda/etc/profile.d/conda.sh && conda activate metro-hand && \
+    cd thirdparty/hand_object_detector/lib && \
+    TORCH_CUDA_ARCH_LIST=Pascal pip --no-cache-dir install -ve .
+
+WORKDIR /root
+RUN cp ./MeshTransformer/run_ho_detector.py ./MeshTransformer/thirdparty/hand_object_detector/
+COPY temp/basicModel_neutral_lbs_10_207_0_v1.0.0.pkl MeshTransformer/metro/modeling/data/
+COPY temp/MANO_RIGHT.pkl MeshTransformer/metro/modeling/data/
+COPY temp/metro_hand_state_dict.bin MeshTransformer/models/metro_release/metro_hand_state_dict.bin
+COPY temp/cls_hrnet_w64_sgd_lr5e-2_wd1e-4_bs32_x100.yaml MeshTransformer/models/hrnet/cls_hrnet_w64_sgd_lr5e-2_wd1e-4_bs32_x100.yaml
+COPY temp/faster_rcnn_1_8_132028.pth ./MeshTransformer/thirdparty/hand_object_detector/models/res101_handobj_100K/pascal_voc/faster_rcnn_1_8_132028.pth
+
+RUN TORCH_CUDA_ARCH_LIST=Pascal FORCE_CUDA=1 /opt/conda/envs/metro-hand/bin/pip --no-cache-dir install \
+    git+https://github.com/facebookresearch/pytorch3d.git@v0.6.2
+
+# Editor
+# vim 8.2
+COPY temp/vim vim
+RUN \
+    cd vim && \
+    ./configure \
+        --enable-python3interp=yes \
+        --with-python3-command=python3.10 \
+        --with-python3-config-dir=/usr/lib/python3.10/config-3.10m-x86_64-linux-gnu && \
+    make -j$(nproc) && make install && \
+    cd .. && rm -rf vim
+# vim-plug
+RUN mkdir -p .vim/autoload
+ADD temp/plug.vim .vim/autoload/plug.vim
+COPY temp/vim_runtime .vim_runtime
+RUN \
+    echo $HOME && \
+    cd .vim_runtime && \
+    sh install_awesome_vimrc.sh
+RUN \
+    bash dotfiles/minimal_install.sh && \
+    cp dotfiles/vimrc .vimrc && \
+    cp dotfiles/vimrc.keymap .vimrc.keymap && \
+    sed -i '4,7s/^/"\ /' .vimrc  # comment out vim_vundle
+RUN vim +PlugInstall +qall
+
+# best practice to keep the Docker image clean
+RUN apt-get clean &&\
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+WORKDIR /root/MeshTransformer
+# Activate metro-hand env in Fish by default
+RUN echo "conda activate metro-hand" >>  ~/.config/fish/config.fish
+ENV PYTHONPATH /root/MeshTransformer
+CMD ["fish"]
+
+## vim: set syntax=dockerfile:
